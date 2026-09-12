@@ -1,0 +1,42 @@
+name: Post daily links to Chatwork
+
+on:
+  schedule:
+    - cron: '0 0 * * TUE'   # 火曜 9:00 JST = 火曜 0:00 UTC
+    - cron: '0 0 * * SAT'   # 土曜 9:00 JST = 土曜 0:00 UTC
+  workflow_dispatch:
+
+jobs:
+  post-to-chatwork:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare and post message to Chatwork
+        env:
+          CHATWORK_TOKEN: ${{ secrets.CHATWORK_TOKEN }}
+          CHATWORK_ROOM_ID: ${{ secrets.CHATWORK_ROOM_ID }}
+          TO_HOSTNAME: ${{ secrets.TO_HOSTNAME }}
+        run: |
+          # JST の当日の日付を取得
+          TODAY_YYYYMMDD=$(TZ=Asia/Tokyo date +%Y%m%d)
+          # 月/日 表示（先頭ゼロを削る）
+          MD=$(TZ=Asia/Tokyo date +%-m/%-d 2>/dev/null || TZ=Asia/Tokyo date +%m/%d | sed 's/^0//; s/\/0/\/ /' | tr -d ' ')
+          # 上の sed/tr は一部環境での互換性確保のためのフォールバックです
+
+          # メッセージ本文を作成（改行を含むため --data-urlencode を使用）
+          MESSAGE="■${MD}銘柄登録リンク\nhttps://${TO_HOSTNAME}/?page=survey&date=${TODAY_YYYYMMDD}\n登録をお願いします。\n\n【投票はこちら】\nhttps://${TO_HOSTNAME}/?page=vote&date=${TODAY_YYYYMMDD}"
+
+          # 投稿（Chatwork API v2 の例）
+          curl -s -X POST "https://api.chatwork.com/v2/rooms/${CHATWORK_ROOM_ID}/messages" \
+            -H "X-ChatWorkToken: ${CHATWORK_TOKEN}" \
+            --data-urlencode "body=${MESSAGE}" \
+            -o /tmp/chatwork_response.txt -w "%{http_code}" | {
+              read status
+              if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+                echo "Chatwork post failed with status $status"
+                echo "Response:"
+                cat /tmp/chatwork_response.txt
+                exit 1
+              else
+                echo "Posted to Chatwork successfully (status $status)."
+              fi
+            }
