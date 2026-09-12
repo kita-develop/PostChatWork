@@ -9,6 +9,7 @@ on:
 jobs:
   post-to-chatwork:
     runs-on: ubuntu-latest
+    environment: "Configure for Chatwork"
     steps:
       - name: Prepare and post message to Chatwork
         env:
