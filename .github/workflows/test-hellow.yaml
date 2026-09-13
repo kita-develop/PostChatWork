@@ -1,0 +1,12 @@
+name : "Hello World Flow"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  hello-world:
+    runs-on: ubuntu-latest
+    environment: "Configure for Chat Work"
+    steps:
+      - name: Say Hello
+        run: echo "Hello, World!"
