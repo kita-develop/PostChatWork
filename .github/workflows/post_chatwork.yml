@@ -35,8 +35,8 @@ jobs:
           echo "TODAY_YYYYMMDD=$TODAY_YYYYMMDD"
           echo "MD=$MD"
 
-          # メッセージ本文を作成（改行を含むため --data-urlencode を使用）
-          MESSAGE="■${MD}銘柄登録リンク\nhttps://${TO_HOSTNAME}/?page=survey&date=${TODAY_YYYYMMDD}\n登録をお願いします。\n\n【投票はこちら】\nhttps://${TO_HOSTNAME}/?page=vote&date=${TODAY_YYYYMMDD}"
+          # メッセージ本文を作成（$'\n' で実改行を埋め込む。--data-urlencode で送信）
+          MESSAGE=$'■'"${MD}"$'銘柄登録リンク\n'"https://${TO_HOSTNAME}/?page=survey&date=${TODAY_YYYYMMDD}"$'\n登録をお願いします。\n\n【投票はこちら】\n'"https://${TO_HOSTNAME}/?page=vote&date=${TODAY_YYYYMMDD}"
           echo "::group::Message preview (token masked)"
           echo "$MESSAGE"
           echo "::endgroup::"
