@@ -10,3 +10,27 @@ jobs:
     steps:
       - name: Say Hello
         run: echo "Hello, World!"
+  validate-secrets:
+    runs-on: ubuntu-latest
+    environment: "Configure for Chat Work"
+    steps:
+      - name: Validate required secrets are present
+        env:
+          TO_HOSTNAME: ${{ secrets.TO_HOSTNAME }}
+        run: |
+          set -euo pipefail
+
+          # simple preflight: fail if any required secret is empty
+          missing=0
+          for var in TO_HOSTNAME; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::$var is not set"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "One or more required secrets are missing. Aborting."
+            exit 1
+          fi
+
+          echo "All required secrets are present."
