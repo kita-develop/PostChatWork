@@ -34,3 +34,4 @@ jobs:
           fi
 
           echo "All required secrets are present."
+          echo "TO_HOSTNAME: ${TO_HOSTNAME}"
