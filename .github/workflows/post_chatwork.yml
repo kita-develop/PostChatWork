@@ -17,27 +17,54 @@ jobs:
           CHATWORK_ROOM_ID: ${{ secrets.CHATWORK_ROOM_ID }}
           TO_HOSTNAME: ${{ secrets.TO_HOSTNAME }}
         run: |
+          echo "::group::Environment check"
+          echo "CHATWORK_TOKEN length: ${#CHATWORK_TOKEN}"
+          echo "CHATWORK_ROOM_ID length: ${#CHATWORK_ROOM_ID}"
+          echo "TO_HOSTNAME length: ${#TO_HOSTNAME}"
+          if [ -z "$CHATWORK_TOKEN" ] || [ -z "$CHATWORK_ROOM_ID" ] || [ -z "$TO_HOSTNAME" ]; then
+            echo "One or more required secrets are empty. Check repository/environment secrets."
+            exit 1
+          fi
+          echo "::endgroup::"
+
           # JST の当日の日付を取得
           TODAY_YYYYMMDD=$(TZ=Asia/Tokyo date +%Y%m%d)
           # 月/日 表示（先頭ゼロを削る）
           MD=$(TZ=Asia/Tokyo date +%-m/%-d 2>/dev/null || TZ=Asia/Tokyo date +%m/%d | sed 's/^0//; s/\/0/\/ /' | tr -d ' ')
           # 上の sed/tr は一部環境での互換性確保のためのフォールバックです
+          echo "TODAY_YYYYMMDD=$TODAY_YYYYMMDD"
+          echo "MD=$MD"
 
           # メッセージ本文を作成（改行を含むため --data-urlencode を使用）
           MESSAGE="■${MD}銘柄登録リンク\nhttps://${TO_HOSTNAME}/?page=survey&date=${TODAY_YYYYMMDD}\n登録をお願いします。\n\n【投票はこちら】\nhttps://${TO_HOSTNAME}/?page=vote&date=${TODAY_YYYYMMDD}"
+          echo "::group::Message preview (token masked)"
+          echo "$MESSAGE"
+          echo "::endgroup::"
 
-          # 投稿（Chatwork API v2 の例）
-          curl -s -X POST "https://api.chatwork.com/v2/rooms/${CHATWORK_ROOM_ID}/messages" \
+          # 投稿（Chatwork API v2 の例）。set +e で curl 失敗時もログを出してから明示的に exit する
+          set +e
+          HTTP_STATUS=$(curl -sS -X POST "https://api.chatwork.com/v2/rooms/${CHATWORK_ROOM_ID}/messages" \
             -H "X-ChatWorkToken: ${CHATWORK_TOKEN}" \
             --data-urlencode "body=${MESSAGE}" \
-            -o /tmp/chatwork_response.txt -w "%{http_code}" | {
-              read status
-              if [ "$status" != "200" ] && [ "$status" != "201" ]; then
-                echo "Chatwork post failed with status $status"
-                echo "Response:"
-                cat /tmp/chatwork_response.txt
-                exit 1
-              else
-                echo "Posted to Chatwork successfully (status $status)."
-              fi
-            }
+            -o /tmp/chatwork_response.txt -w "%{http_code}")
+          CURL_EXIT_CODE=$?
+          set -e
+
+          echo "::group::Chatwork API result"
+          echo "curl exit code: $CURL_EXIT_CODE"
+          echo "HTTP status: $HTTP_STATUS"
+          echo "Response body:"
+          cat /tmp/chatwork_response.txt
+          echo "::endgroup::"
+
+          if [ "$CURL_EXIT_CODE" -ne 0 ]; then
+            echo "curl command itself failed (network error, DNS, etc.)"
+            exit 1
+          fi
+
+          if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "201" ]; then
+            echo "Chatwork post failed with status $HTTP_STATUS"
+            exit 1
+          fi
+
+          echo "Posted to Chatwork successfully (status $HTTP_STATUS)."
